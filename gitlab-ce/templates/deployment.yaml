@@ -1,0 +1,57 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "gitlab-ce.fullname" . }}
+  labels:
+    app: {{ template "gitlab-ce.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "gitlab-ce.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: "aliyun_logs_gitlab-ce"
+              value: "stdout"
+            - name: "aliyun_logs_gitlab-ce-production"
+              value: "/var/log/gitlab/gitlab-rails/production.log"
+            - name: TZ
+              value: Asia/Shanghai
+          ports:
+            - containerPort: {{ .Values.service.internalPort }}
+            - containerPort: {{ .Values.service.internalPort2 }}
+          volumeMounts:
+            - name: "config"
+              mountPath: /etc/gitlab
+            - name: "data"
+              mountPath: /var/opt/gitlab
+            - name: gitlab-ce-log
+              mountPath: /var/log/gitlab
+      imagePullSecrets:
+        - name: {{ .Values.image.imagePullSecret }}
+      volumes:
+        - name: "config"
+          flexVolume:
+            driver: "alicloud/nas"
+            options:
+              server: "aliyun-NAS-vpc-id.cn-beijing.nas.aliyuncs.com"
+              path: "/k8s/git/gitlab/config"
+              vers: "4.0"
+        - name: "data"
+          flexVolume:
+            driver: "alicloud/nas"
+            options:
+              server: "aliyun-NAS-vpc-id.cn-beijing.nas.aliyuncs.com"
+              path: "/k8s/git/gitlab/data"
+              vers: "4.0"
+        - name: "gitlab-ce-log"
+          emptyDir: {}
